@@ -1,4 +1,4 @@
-/* 用 Claude 玩上 GTA6 —— 渲染 + 动效
+/* 用 AI 玩上 GTA6 —— 渲染 + 动效
    数据优先从后台 API(/api/challenge) 读取，失败则回退到静态 window.CHALLENGE。 */
 (async function () {
   "use strict";
@@ -183,7 +183,7 @@
       <div class="empty" data-reveal>
         ${BAG_SVG}
         <div class="empty__big">¥0</div>
-        <p>钱袋还是空的。第一块通过 Claude 攒到的零钱出现在这里时，搬家挑战才算真正开始。</p>
+        <p>钱袋还是空的。第一块通过 AI 攒到的零钱出现在这里时，搬家挑战才算真正开始。</p>
         <div class="empty__hint">去 /admin 后台记第一笔，钱袋就鼓起来了</div>
       </div>`;
     return li;
@@ -336,7 +336,7 @@
   }
 
   // 标题动态填充
-  document.title = `${config.title || "用 Claude 玩上 GTA6"} · 公开赚钱挑战`;
+  document.title = `${config.title || "用 AI 玩上 GTA6"} · 公开赚钱挑战`;
 
   // ── 入场动画（滚动揭示） ─────────────────────────────
   function setupReveal() {
