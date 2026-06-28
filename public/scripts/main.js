@@ -336,7 +336,7 @@
   }
 
   // 标题动态填充
-  document.title = `${config.title || "用 AI 玩上 GTA6"} · 公开赚钱挑战`;
+  document.title = config.title || "努力奋战 · 用 AI 玩上 GTA6";
 
   // ── 入场动画（滚动揭示） ─────────────────────────────
   function setupReveal() {
