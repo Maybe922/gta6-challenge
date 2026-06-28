@@ -1,15 +1,13 @@
 // 用 Claude 攒零钱玩上 GTA6 —— 前台 + 后台记账服务
-// 纯文件存储（challenge.json），零数据库。
+// 存储：SQLite（data/challenge.db），见 db.js。
 import express from "express";
 import crypto from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { initDb, getData, addEntry, updateEntry, deleteEntry, patchConfig } from "./db.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, "public");
-const DATA_JSON = join(PUBLIC_DIR, "data", "challenge.json");
-const DATA_JS = join(PUBLIC_DIR, "data", "challenge.js");
 
 const PORT = process.env.PORT || 3000;
 // 后台密码：务必通过环境变量设置。默认值仅供本地试用。
@@ -19,27 +17,10 @@ const COOKIE = "gta6_admin";
 // 内存会话（重启即失效，需要重新登录）
 const sessions = new Set();
 
+initDb();
+
 const app = express();
 app.use(express.json());
-
-// ── 数据读写 ────────────────────────────────────────────
-async function readData() {
-  const raw = await readFile(DATA_JSON, "utf8");
-  const data = JSON.parse(raw);
-  if (!Array.isArray(data.entries)) data.entries = [];
-  if (!data.config) data.config = {};
-  return data;
-}
-
-async function writeData(data) {
-  const json = JSON.stringify(data, null, 2);
-  await writeFile(DATA_JSON, json + "\n", "utf8");
-  // 同步生成静态兜底文件，纯静态部署也能用最新数据
-  const js =
-    "/* 自动生成：由后台保存时写入。手动编辑请改 challenge.json 或用 /admin。 */\n" +
-    "window.CHALLENGE = " + json + ";\n";
-  await writeFile(DATA_JS, js, "utf8");
-}
 
 // ── 校验 ────────────────────────────────────────────────
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -133,11 +114,10 @@ function safeEqual(a, b) {
 }
 
 // ── 公开 API ────────────────────────────────────────────
-app.get("/api/challenge", async (_req, res) => {
+app.get("/api/challenge", (_req, res) => {
   try {
-    const data = await readData();
     res.set("Cache-Control", "no-store");
-    res.json(data);
+    res.json(getData());
   } catch (e) {
     res.status(500).json({ error: "读取数据失败" });
   }
@@ -171,56 +151,42 @@ app.get("/api/session", (req, res) => {
 });
 
 // ── 后台写入 API（需登录） ──────────────────────────────
-app.post("/api/entries", requireAuth, async (req, res) => {
+app.post("/api/entries", requireAuth, (req, res) => {
   const { errors, value } = validateEntry(req.body || {});
   if (errors.length) return res.status(400).json({ error: errors.join("；") });
   try {
-    const data = await readData();
-    const entry = { id: crypto.randomUUID(), ...value };
-    data.entries.push(entry);
-    await writeData(data);
-    res.json({ ok: true, entry });
+    res.json({ ok: true, entry: addEntry(value) });
   } catch (e) {
     res.status(500).json({ error: "保存失败" });
   }
 });
 
-app.put("/api/entries/:id", requireAuth, async (req, res) => {
+app.put("/api/entries/:id", requireAuth, (req, res) => {
   const { errors, value } = validateEntry(req.body || {});
   if (errors.length) return res.status(400).json({ error: errors.join("；") });
   try {
-    const data = await readData();
-    const idx = data.entries.findIndex((e) => e.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: "未找到该记录" });
-    data.entries[idx] = { id: req.params.id, ...value };
-    await writeData(data);
-    res.json({ ok: true, entry: data.entries[idx] });
+    const entry = updateEntry(req.params.id, value);
+    if (!entry) return res.status(404).json({ error: "未找到该记录" });
+    res.json({ ok: true, entry });
   } catch (e) {
     res.status(500).json({ error: "更新失败" });
   }
 });
 
-app.delete("/api/entries/:id", requireAuth, async (req, res) => {
+app.delete("/api/entries/:id", requireAuth, (req, res) => {
   try {
-    const data = await readData();
-    const before = data.entries.length;
-    data.entries = data.entries.filter((e) => e.id !== req.params.id);
-    if (data.entries.length === before) return res.status(404).json({ error: "未找到该记录" });
-    await writeData(data);
+    if (!deleteEntry(req.params.id)) return res.status(404).json({ error: "未找到该记录" });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: "删除失败" });
   }
 });
 
-app.put("/api/config", requireAuth, async (req, res) => {
+app.put("/api/config", requireAuth, (req, res) => {
   const { errors, patch } = validateConfig(req.body || {});
   if (errors.length) return res.status(400).json({ error: errors.join("；") });
   try {
-    const data = await readData();
-    data.config = { ...data.config, ...patch };
-    await writeData(data);
-    res.json({ ok: true, config: data.config });
+    res.json({ ok: true, config: patchConfig(patch) });
   } catch (e) {
     res.status(500).json({ error: "保存失败" });
   }

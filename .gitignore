@@ -2,3 +2,12 @@ node_modules/
 .env
 npm-debug.log*
 .DS_Store
+
+# SQLite 运行时数据库（真源在服务器上，不进仓库）
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# 运行时生成的前台兜底（由 SQLite 导出）
+public/data/challenge.js
