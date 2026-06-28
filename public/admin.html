@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>后台 · 攒零钱岛</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" />
+  <link rel="stylesheet" href="styles/tokens.css" />
+  <link rel="stylesheet" href="styles/admin.css" />
+</head>
+<body>
+  <div class="island" aria-hidden="true"></div>
+
+  <!-- 登录 -->
+  <section class="login" data-view="login" hidden>
+    <form class="login__card" id="login-form">
+      <span class="ribbon ribbon--green"><span class="ribbon__text">后台登录 · ADMIN</span></span>
+      <h1 class="login__title">攒零钱岛 · 记账后台</h1>
+      <p class="login__hint">输入后台密码，进去加一笔零钱。</p>
+      <input class="field" id="password" type="password" placeholder="后台密码" autocomplete="current-password" />
+      <button class="btn btn--primary" type="submit">进岛</button>
+      <p class="msg" id="login-msg" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- 控制台 -->
+  <section class="dash" data-view="dash" hidden>
+    <header class="dash__top">
+      <div class="brand">
+        <svg viewBox="0 0 32 32" aria-hidden="true" width="26" height="26">
+          <path d="M16 3 C9 8 6 16 8 26 C16 23 24 15 26 5 C22 5 19 4 16 3Z" fill="#6fba2c"/>
+          <path d="M11 24 L19 11" stroke="#5a9e1e" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>记账后台</span>
+      </div>
+      <div class="dash__actions">
+        <a class="btn btn--ghost" href="/" target="_blank">看前台 ↗</a>
+        <button class="btn btn--ghost" id="logout">退出</button>
+      </div>
+    </header>
+
+    <div class="dash__grid">
+      <!-- 添加收入 -->
+      <div class="panel">
+        <span class="ribbon ribbon--orange"><span class="ribbon__text">记一笔零钱</span></span>
+        <form id="entry-form" class="form">
+          <div class="row">
+            <label>日期<input class="field" type="date" name="date" required /></label>
+            <label>金额（元）<input class="field" type="number" name="amount" step="0.01" min="0.01" placeholder="12.00" required /></label>
+          </div>
+          <label>项目<input class="field" name="project" placeholder="双吉AI发卡网" required /></label>
+          <label>备注<input class="field" name="note" placeholder="首单破零 🎉（可选）" /></label>
+          <label>链接<input class="field" name="link" type="url" placeholder="https://…（可选）" /></label>
+          <div class="form__foot">
+            <button class="btn btn--primary" type="submit" id="entry-submit">添加进账</button>
+            <button class="btn btn--ghost" type="button" id="entry-cancel" hidden>取消编辑</button>
+          </div>
+          <p class="msg" id="entry-msg" role="alert"></p>
+        </form>
+      </div>
+
+      <!-- 目标设置：搬家清单 -->
+      <div class="panel">
+        <span class="ribbon ribbon--teal"><span class="ribbon__text">搬家清单 · 目标</span></span>
+        <form id="config-form" class="form">
+          <div class="items-head">
+            <span>清单（攒够一件点亮一件）</span>
+            <span class="items-total">合计 <b id="items-total">¥0</b></span>
+          </div>
+          <div id="items-editor" class="items-editor"></div>
+          <button class="btn btn--ghost btn--sm" type="button" id="add-item">+ 添加一件</button>
+
+          <label>目标说明（前台「目标：」后面那行）<input class="field" name="goalLabel" placeholder="客厅四件套" /></label>
+          <label>截止日<input class="field" type="date" name="deadline" /></label>
+          <div class="row">
+            <label>社媒昵称<input class="field" name="handle" placeholder="@双吉" /></label>
+            <label>主页链接<input class="field" name="socialUrl" type="url" placeholder="https://…" /></label>
+          </div>
+          <div class="form__foot">
+            <button class="btn btn--primary" type="submit">保存目标</button>
+          </div>
+          <p class="msg" id="config-msg" role="alert"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- 流水列表 -->
+    <div class="panel panel--wide">
+      <span class="ribbon ribbon--pink"><span class="ribbon__text">零钱流水</span></span>
+      <div class="summary" id="summary"></div>
+      <div class="list" id="entry-list"></div>
+    </div>
+  </section>
+
+  <script src="scripts/admin.js"></script>
+</body>
+</html>

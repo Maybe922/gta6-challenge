@@ -1,0 +1,14 @@
+{
+  "name": "gta6-challenge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "用 Claude 攒铃钱玩上 GTA6 · 公开挑战 + 后台记账系统",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --env-file-if-exists=.env --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

@@ -1,0 +1,73 @@
+/* ── 设计令牌 ──────────────────────────────────────────────
+   方向：animal-island-ui（《集合啦！动物森友会》启发）
+   温暖大地色 · 草地绿岛 · 大圆角 pill · 游戏按键立体感
+   忠实复刻 guokaigdg/animal-island-ui 的设计 token
+   ───────────────────────────────────────────────────────── */
+
+:root {
+  /* 字体 */
+  --font-ui: "Nunito", "Noto Sans SC", -apple-system, "PingFang SC", sans-serif;
+
+  /* 表面 / 底色 */
+  --parchment:  #f8f8f0;            /* 主背景 暖羊皮纸 */
+  --card:       rgb(247, 243, 223); /* 卡片 / 弹窗 / 表格 */
+  --card-soft:  rgb(250, 248, 242); /* dashed 卡片浅底 */
+  --grass:      #7dc395;            /* 岛屿草地 */
+  --grass-deep: #5fae7e;
+  --sky-top:    #cdeede;            /* 天空浅薄荷 */
+  --sky-mid:    #a9e0c4;
+
+  /* 文字（暖棕色系） */
+  --text:       #794f27;  /* 主文字（标题/导航） */
+  --text-body:  #725d42;  /* 正文 */
+  --text-2:     #9f927d;  /* 次级 */
+  --text-muted: #8a7b66;  /* 浅棕 */
+  --text-dim:   #c4b89e;  /* 占位/禁用 */
+
+  /* 主色：薄荷青绿 */
+  --mint:    #19c8b9;
+  --mint-h:  #3dd4c6;
+  --mint-a:  #11a89b;
+  --mint-bg: #e6f9f6;
+
+  /* 状态色 */
+  --green:   #6fba2c;  /* success */
+  --green-a: #5a9e1e;
+  --warn:    #f5c31c;
+  --error:   #e05a5a;
+  --error-a: #c94444;
+  --yellow:  #ffcc00;  /* game focus / 确认键 */
+  --yellow-d:#e0b800;
+
+  /* 钱袋（零钱）橄榄黄 */
+  --bell:        #b3a046;
+  --bell-shadow: #8e7d2c;
+  --bell-halo:   #fffbe7;
+  --bell-text-shadow: rgba(91, 78, 30, 0.55);
+
+  /* 描边 / 立体阴影 */
+  --border:     #9f927d;          /* 标准 2px */
+  --border-in:  #c4b89e;          /* 输入框 */
+  --btn-stack:  #bdaea0;          /* primary 按钮 3D 底部 */
+
+  /* 圆角 */
+  --r-card: 20px;
+  --r-pill: 50px;
+  --r-sm:   12px;
+  --r-md:   18px;
+
+  /* 阴影（柔和 elevation，卡片本身不投影） */
+  --shadow-sm:      0 2px 4px 0 rgba(61, 52, 40, 0.06);
+  --shadow-base:    0 3px 10px 0 rgba(61, 52, 40, 0.10);
+  --shadow-feature: 0 8px 24px rgba(114, 93, 66, 0.15);
+
+  /* 间距 */
+  --gutter: clamp(1.1rem, 0.5rem + 2.6vw, 2.4rem);
+  --space-section: clamp(3rem, 2rem + 5vw, 6.5rem);
+  --maxw: 1080px;
+
+  /* 动效 */
+  --dur-fast: 160ms;
+  --dur: 300ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}

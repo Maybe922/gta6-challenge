@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>用 Claude 玩上 GTA6 · 攒零钱挑战岛</title>
+  <meta name="description" content="一个公开记录的挑战：在 GTA6 发售（2026-11-19）之前，只靠用 Claude 做的项目攒够零钱，搬进 GTA6 客厅。" />
+
+  <meta property="og:title" content="用 Claude 玩上 GTA6 · 攒零钱挑战岛" />
+  <meta property="og:description" content="像还 Nook 贷款一样，只靠 Claude 攒零钱，11/19 之前搬进 GTA6 客厅。每一块钱都公开记录。" />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#7dc395" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" />
+  <link rel="stylesheet" href="styles/tokens.css" />
+  <link rel="stylesheet" href="styles/style.css" />
+</head>
+<body>
+  <div class="island" aria-hidden="true"></div>
+  <div class="cloud cloud-1" aria-hidden="true"></div>
+  <div class="cloud cloud-2" aria-hidden="true"></div>
+
+  <main>
+    <!-- 顶部：零钱账本（主角） -->
+    <section class="lede" id="board" aria-labelledby="hero-h1">
+      <div class="wrap">
+        <div class="lede__top" data-reveal>
+          <div class="lede__head">
+            <span class="ribbon ribbon--green"><span class="ribbon__text">公开挑战 · LIVE</span></span>
+            <h1 id="hero-h1" class="lede__title">
+              <span class="hl">Claude</span> 负责赚钱，<br />我负责玩 <span class="hl">GTA6</span>
+            </h1>
+          </div>
+
+          <!-- AC 风格倒计时时钟（右上角） -->
+          <div class="countdown" id="countdown" role="timer" aria-label="距离 GTA6 发售的倒计时">
+            <span class="countdown__label">距离 GTA6 发售<b>2026.11.19</b></span>
+            <div class="countdown__units">
+              <div class="cd-unit"><b data-cd="days">--</b><span>天</span></div>
+              <span class="cd-sep" aria-hidden="true">:</span>
+              <div class="cd-unit"><b data-cd="hours">--</b><span>时</span></div>
+              <span class="cd-sep" aria-hidden="true">:</span>
+              <div class="cd-unit"><b data-cd="mins">--</b><span>分</span></div>
+              <span class="cd-sep" aria-hidden="true">:</span>
+              <div class="cd-unit"><b data-cd="secs">--</b><span>秒</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 零钱账本（像还 Nook 贷款一样） -->
+        <div class="card loan" data-reveal>
+          <span class="ribbon ribbon--teal loan__tag" id="board-title"><span class="ribbon__text">零钱账本 · THE POT</span></span>
+
+          <div class="loan__row">
+            <!-- 钱袋钱包 -->
+            <div class="wallet" aria-live="polite">
+              <div class="wallet__pill">
+                <span class="wallet__sym">¥</span>
+                <span class="wallet__cur" data-counter>0</span>
+              </div>
+              <span class="wallet__unit">已攒零钱</span>
+            </div>
+
+            <div class="loan__goal">
+              <span class="loan__goal-label">目标：</span>
+              <div class="loan__goal-items">
+                <span data-goal-label>—</span>
+                <span class="loan__goal-amt" data-goal-amount>—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 偿还进度条 -->
+          <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" data-progressbar>
+            <div class="bar__fill" data-progress-fill></div>
+          </div>
+          <div class="bar__meta">
+            <span>已攒 <b data-progress-pct>0%</b></span>
+            <span class="bar__state" data-progress-state>等待破零</span>
+          </div>
+
+          <!-- 节奏三宫格 -->
+          <div class="pace">
+            <div class="pace__cell is-need"><span>还差</span><b data-stat-need>¥—</b></div>
+            <div class="pace__cell is-day"><span>剩余天数</span><b data-stat-days>—</b></div>
+            <div class="pace__cell is-rate"><span>平均每天要赚</span><b data-stat-rate>¥—</b></div>
+          </div>
+        </div>
+
+        <!-- 搬家清单（攒够一件点亮一件） -->
+        <div class="card wishlist" data-reveal>
+          <div class="wishlist__head">
+            <span class="ribbon ribbon--orange"><span class="ribbon__text">搬家清单 · WISHLIST</span></span>
+            <span class="wishlist__count" data-wishlist-count>已拿下 0 / 0</span>
+          </div>
+          <ul class="wishlist__list" data-wishlist></ul>
+          <p class="wishlist__rule">规则：<b>只算我通过 Claude 做的项目攒到的钱</b>，便宜的先点亮。</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 流水账本 -->
+    <section class="ledger" id="ledger" aria-labelledby="ledger-title">
+      <div class="wrap">
+        <div class="sec-head" data-reveal>
+          <span class="ribbon ribbon--orange"><span class="ribbon__text" id="ledger-title">零钱流水</span></span>
+          <span class="eyebrow-en">The Receipts</span>
+        </div>
+        <ul class="timeline" data-timeline></ul>
+      </div>
+    </section>
+
+    <!-- 项目战绩 -->
+    <section class="breakdown" id="breakdown" aria-labelledby="breakdown-title" hidden data-breakdown>
+      <div class="wrap">
+        <div class="sec-head" data-reveal>
+          <span class="ribbon ribbon--pink"><span class="ribbon__text" id="breakdown-title">项目战绩</span></span>
+          <span class="eyebrow-en">By Project</span>
+        </div>
+        <div class="bento" data-bento></div>
+      </div>
+    </section>
+
+    <!-- 岛民公约（规则） -->
+    <section class="manifesto" id="manifesto" aria-labelledby="manifesto-title">
+      <div class="wrap">
+        <div class="sec-head" data-reveal>
+          <span class="ribbon ribbon--brown"><span class="ribbon__text" id="manifesto-title">岛民公约</span></span>
+          <span class="eyebrow-en">The Rules</span>
+        </div>
+        <div class="rules" data-reveal>
+          <div class="rule">
+            <span class="rule__no">1</span>
+            <p><b>只算 Claude 攒的零钱。</b>必须是用 Claude 做出来的项目带来的真实收入，别的收入一概不计入这座岛。</p>
+          </div>
+          <div class="rule">
+            <span class="rule__no">2</span>
+            <p><b>每一笔都公开。</b>进账就记一条，挂在具体项目上，全程能被人看见，不藏不修。</p>
+          </div>
+          <div class="rule">
+            <span class="rule__no">3</span>
+            <p><b>终点线是客厅全套。</b>攒够 PS5 Pro + 电视 + 游戏 + 沙发，能窝在沙发里打 GTA6，才算搬家成功。</p>
+          </div>
+          <div class="rule">
+            <span class="rule__no">4</span>
+            <p><b>截止 11 月 19 日。</b>GTA6 发售那天就是交卷日。攒够了，当天就开玩。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <div class="foot__main">
+        <p class="foot__slogan">一块一块攒，<b>11/19 沙发上见</b> 🎮</p>
+        <p class="foot__sub">攒够那天，就是开机那天。</p>
+        <p class="foot__by">
+          由 <b data-handle>@双吉</b> 公开记录 · 网站由 Claude 协作 · 最近更新 <span data-updated>—</span>
+        </p>
+      </div>
+      <a class="btn-primary" data-social hidden href="#">关注进度 →</a>
+    </div>
+  </footer>
+
+  <script src="data/challenge.js"></script>
+  <script src="scripts/main.js"></script>
+</body>
+</html>

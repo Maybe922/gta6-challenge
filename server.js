@@ -1,0 +1,242 @@
+// 用 Claude 攒零钱玩上 GTA6 —— 前台 + 后台记账服务
+// 纯文件存储（challenge.json），零数据库。
+import express from "express";
+import crypto from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = join(__dirname, "public");
+const DATA_JSON = join(PUBLIC_DIR, "data", "challenge.json");
+const DATA_JS = join(PUBLIC_DIR, "data", "challenge.js");
+
+const PORT = process.env.PORT || 3000;
+// 后台密码：务必通过环境变量设置。默认值仅供本地试用。
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "gta6-island";
+const COOKIE = "gta6_admin";
+
+// 内存会话（重启即失效，需要重新登录）
+const sessions = new Set();
+
+const app = express();
+app.use(express.json());
+
+// ── 数据读写 ────────────────────────────────────────────
+async function readData() {
+  const raw = await readFile(DATA_JSON, "utf8");
+  const data = JSON.parse(raw);
+  if (!Array.isArray(data.entries)) data.entries = [];
+  if (!data.config) data.config = {};
+  return data;
+}
+
+async function writeData(data) {
+  const json = JSON.stringify(data, null, 2);
+  await writeFile(DATA_JSON, json + "\n", "utf8");
+  // 同步生成静态兜底文件，纯静态部署也能用最新数据
+  const js =
+    "/* 自动生成：由后台保存时写入。手动编辑请改 challenge.json 或用 /admin。 */\n" +
+    "window.CHALLENGE = " + json + ";\n";
+  await writeFile(DATA_JS, js, "utf8");
+}
+
+// ── 校验 ────────────────────────────────────────────────
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function validateEntry(body) {
+  const errors = [];
+  const date = String(body.date || "").trim();
+  const project = String(body.project || "").trim();
+  const amount = Number(body.amount);
+  const note = body.note == null ? "" : String(body.note).trim();
+  const link = body.link == null ? "" : String(body.link).trim();
+
+  if (!DATE_RE.test(date)) errors.push("日期格式需为 YYYY-MM-DD");
+  if (!project) errors.push("项目名不能为空");
+  if (!Number.isFinite(amount) || amount <= 0) errors.push("金额需为大于 0 的数字");
+  if (project.length > 60) errors.push("项目名过长");
+  if (note.length > 200) errors.push("备注过长");
+  if (link && !/^https?:\/\//.test(link)) errors.push("链接需以 http(s):// 开头");
+
+  return { errors, value: { date, project, amount: Math.round(amount * 100) / 100, note, link } };
+}
+
+const ICON_SET = new Set(["console", "tv", "disc", "sofa", "pc", "gift"]);
+
+function validateConfig(body) {
+  const errors = [];
+  const patch = {};
+
+  // 搬家清单：清单驱动目标金额
+  if (Array.isArray(body.goalItems)) {
+    const items = [];
+    for (const it of body.goalItems) {
+      const name = String((it && it.name) || "").trim();
+      const price = Number(it && it.price);
+      if (!name) { errors.push("清单项名称不能为空"); continue; }
+      if (!Number.isFinite(price) || price <= 0) { errors.push(`「${name}」价格需为大于 0 的数字`); continue; }
+      const icon = ICON_SET.has(it && it.icon) ? it.icon : "gift";
+      items.push({ name: name.slice(0, 40), price: Math.round(price), icon });
+    }
+    if (!errors.length) {
+      if (!items.length) errors.push("搬家清单至少要有一件");
+      else {
+        patch.goalItems = items;
+        patch.goalAmount = items.reduce((s, i) => s + i.price, 0);
+      }
+    }
+  } else if (body.goalAmount != null) {
+    const g = Number(body.goalAmount);
+    if (!Number.isFinite(g) || g <= 0) errors.push("目标金额需为大于 0 的数字");
+    else patch.goalAmount = Math.round(g);
+  }
+
+  if (body.deadline != null) {
+    if (!DATE_RE.test(String(body.deadline))) errors.push("截止日格式需为 YYYY-MM-DD");
+    else patch.deadline = body.deadline;
+  }
+  if (body.startDate != null && DATE_RE.test(String(body.startDate))) patch.startDate = body.startDate;
+  for (const k of ["goalLabel", "title", "handle", "socialUrl", "currency"]) {
+    if (body[k] != null) patch[k] = String(body[k]).slice(0, 120);
+  }
+  return { errors, patch };
+}
+
+// ── 鉴权 ────────────────────────────────────────────────
+function parseCookies(req) {
+  const out = {};
+  const raw = req.headers.cookie;
+  if (!raw) return out;
+  for (const part of raw.split(";")) {
+    const i = part.indexOf("=");
+    if (i > -1) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return out;
+}
+
+function isAuthed(req) {
+  const token = parseCookies(req)[COOKIE];
+  return token && sessions.has(token);
+}
+
+function requireAuth(req, res, next) {
+  if (!isAuthed(req)) return res.status(401).json({ error: "未登录" });
+  next();
+}
+
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+// ── 公开 API ────────────────────────────────────────────
+app.get("/api/challenge", async (_req, res) => {
+  try {
+    const data = await readData();
+    res.set("Cache-Control", "no-store");
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: "读取数据失败" });
+  }
+});
+
+// ── 鉴权 API ────────────────────────────────────────────
+app.post("/api/login", (req, res) => {
+  const { password } = req.body || {};
+  if (!password || !safeEqual(password, ADMIN_PASSWORD)) {
+    return res.status(401).json({ error: "密码错误" });
+  }
+  const token = crypto.randomBytes(24).toString("hex");
+  sessions.add(token);
+  res.cookie?.(COOKIE, token); // express4 无内置 cookie()，下面手动设置
+  res.setHeader(
+    "Set-Cookie",
+    `${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`
+  );
+  res.json({ ok: true });
+});
+
+app.post("/api/logout", (req, res) => {
+  const token = parseCookies(req)[COOKIE];
+  if (token) sessions.delete(token);
+  res.setHeader("Set-Cookie", `${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`);
+  res.json({ ok: true });
+});
+
+app.get("/api/session", (req, res) => {
+  res.json({ authed: isAuthed(req) });
+});
+
+// ── 后台写入 API（需登录） ──────────────────────────────
+app.post("/api/entries", requireAuth, async (req, res) => {
+  const { errors, value } = validateEntry(req.body || {});
+  if (errors.length) return res.status(400).json({ error: errors.join("；") });
+  try {
+    const data = await readData();
+    const entry = { id: crypto.randomUUID(), ...value };
+    data.entries.push(entry);
+    await writeData(data);
+    res.json({ ok: true, entry });
+  } catch (e) {
+    res.status(500).json({ error: "保存失败" });
+  }
+});
+
+app.put("/api/entries/:id", requireAuth, async (req, res) => {
+  const { errors, value } = validateEntry(req.body || {});
+  if (errors.length) return res.status(400).json({ error: errors.join("；") });
+  try {
+    const data = await readData();
+    const idx = data.entries.findIndex((e) => e.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: "未找到该记录" });
+    data.entries[idx] = { id: req.params.id, ...value };
+    await writeData(data);
+    res.json({ ok: true, entry: data.entries[idx] });
+  } catch (e) {
+    res.status(500).json({ error: "更新失败" });
+  }
+});
+
+app.delete("/api/entries/:id", requireAuth, async (req, res) => {
+  try {
+    const data = await readData();
+    const before = data.entries.length;
+    data.entries = data.entries.filter((e) => e.id !== req.params.id);
+    if (data.entries.length === before) return res.status(404).json({ error: "未找到该记录" });
+    await writeData(data);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: "删除失败" });
+  }
+});
+
+app.put("/api/config", requireAuth, async (req, res) => {
+  const { errors, patch } = validateConfig(req.body || {});
+  if (errors.length) return res.status(400).json({ error: errors.join("；") });
+  try {
+    const data = await readData();
+    data.config = { ...data.config, ...patch };
+    await writeData(data);
+    res.json({ ok: true, config: data.config });
+  } catch (e) {
+    res.status(500).json({ error: "保存失败" });
+  }
+});
+
+// ── 静态资源 ────────────────────────────────────────────
+app.get("/admin", (_req, res) => res.redirect("/admin.html"));
+app.use(express.static(PUBLIC_DIR));
+
+app.listen(PORT, () => {
+  console.log(`\n  🌴 攒零钱岛已启动`);
+  console.log(`     前台:  http://localhost:${PORT}/`);
+  console.log(`     后台:  http://localhost:${PORT}/admin`);
+  if (ADMIN_PASSWORD === "gta6-island") {
+    console.log(`     ⚠️  正在使用默认密码，请用 ADMIN_PASSWORD 环境变量设置自己的密码\n`);
+  } else {
+    console.log("");
+  }
+});
