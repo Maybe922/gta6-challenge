@@ -234,35 +234,44 @@ function dailyStats(dateStr) {
 
 const yuanStr = (n) => "¥" + Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
-// 口号随机池 —— 每次生成随机抽一句，要的就是 casual、每次都不一样的感觉
-const SLOGANS_EARNED = [
-  "一块一块攒，11/19 沙发上见 🎮",
-  "今天又近了一步 🛋️",
-  "进度条 +1，离 GTA6 更近了",
-  "钱包鼓一点，沙发近一点",
-  "积少成多，开机有望 💪",
-  "今天的零钱已就位 ✅",
-  "稳住，我们能赢 🐷",
-  "离客厅四件套又近一点点",
-];
-const SLOGANS_IDLE = [
-  "慢慢来，沙发在等我 🛋️",
-  "今天歇会儿，明天接着冲",
-  "没进账也不慌，路还长 🌱",
-  "攒钱是场马拉松 🏃",
-  "明天继续努力 💪",
-  "沙发不急，我也不急 🐷",
-  "蓄力中，等一个好项目",
-  "稳住节奏，11/19 见",
-];
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const SLOGAN_FALLBACK = "慢慢攒，11/19 沙发上见 🛋️";
 
-// 整张海报（含中文 + 数字）的提示词，把真实数据嵌进去让模型直接画出来
-function buildDailyPrompt(dateStr) {
-  const s = dailyStats(dateStr);
+// 每次让 gpt-5.5 根据今天的真实数据现写一句 casual 口号（不预制）
+async function generateSlogan(s) {
+  const key = process.env.CNAI_API_KEY || process.env.OPENAI_API_KEY;
+  const base = (process.env.CNAI_BASE_URL || process.env.OPENAI_BASE_URL || "").replace(/\/+$/, "");
+  if (!key || !base) return SLOGAN_FALLBACK;
+
+  const userMsg =
+    "你在帮一个公开攒钱挑战写社媒口号。背景：博主靠用 AI 做的项目攒钱，目标是在 GTA6 发售前攒够「客厅四件套」（PS5 Pro、电视、沙发、游戏本体），攒够那天就开机玩 GTA6。" +
+    `今天进账 ${yuanStr(s.todaySum)}，累计已攒 ${yuanStr(s.total)}（目标 ${yuanStr(s.goal)}，完成 ${s.pct.toFixed(1)}%），距发售还剩 ${s.daysLeft} 天。` +
+    "请写一句 12 个字以内、轻松随性、有点幽默或治愈感的中文短口号，贴合今天的进展（今天有进账就带点小喜悦，没进账就轻松鼓励、别制造焦虑）。可带一个 emoji。只输出这句口号本身，不要引号、不要解释。";
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const r = await fetch(base + "/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+      body: JSON.stringify({ model: "gpt-5.5", messages: [{ role: "user", content: userMsg }] }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok) return SLOGAN_FALLBACK;
+    const j = await r.json();
+    let txt = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
+    txt = String(txt).trim().split("\n")[0].replace(/^["'「『]+|["'」』]+$/g, "").trim().slice(0, 30);
+    return txt || SLOGAN_FALLBACK;
+  } catch (_) {
+    return SLOGAN_FALLBACK;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// 整张海报（含中文 + 数字）的提示词，把真实数据 + 现写口号嵌进去让模型直接画出来
+function buildDailyPrompt(s, slogan) {
   const scene = DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
   const todayLine = s.todaySum > 0 ? "今天进账 +" + yuanStr(s.todaySum) : "今天进账 ¥0";
-  const slogan = pick(s.todaySum > 0 ? SLOGANS_EARNED : SLOGANS_IDLE);
 
   return (
     "A cute cozy Animal Crossing-inspired vertical poster (portrait), soft cel-shaded vector game-art style. " +
@@ -319,7 +328,9 @@ async function generateDailyImage(prompt) {
 
 app.post("/api/daily-image", requireAuth, async (req, res) => {
   try {
-    const prompt = buildDailyPrompt((req.body || {}).date);
+    const s = dailyStats((req.body || {}).date);
+    const slogan = await generateSlogan(s);
+    const prompt = buildDailyPrompt(s, slogan);
     res.json({ image: await generateDailyImage(prompt) });
   } catch (e) {
     const msg = e && e.name === "AbortError" ? "生成超时，请重试" : (e && e.message) || "生成失败";
