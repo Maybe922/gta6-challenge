@@ -234,12 +234,35 @@ function dailyStats(dateStr) {
 
 const yuanStr = (n) => "¥" + Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
+// 口号随机池 —— 每次生成随机抽一句，要的就是 casual、每次都不一样的感觉
+const SLOGANS_EARNED = [
+  "一块一块攒，11/19 沙发上见 🎮",
+  "今天又近了一步 🛋️",
+  "进度条 +1，离 GTA6 更近了",
+  "钱包鼓一点，沙发近一点",
+  "积少成多，开机有望 💪",
+  "今天的零钱已就位 ✅",
+  "稳住，我们能赢 🐷",
+  "离客厅四件套又近一点点",
+];
+const SLOGANS_IDLE = [
+  "慢慢来，沙发在等我 🛋️",
+  "今天歇会儿，明天接着冲",
+  "没进账也不慌，路还长 🌱",
+  "攒钱是场马拉松 🏃",
+  "明天继续努力 💪",
+  "沙发不急，我也不急 🐷",
+  "蓄力中，等一个好项目",
+  "稳住节奏，11/19 见",
+];
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
 // 整张海报（含中文 + 数字）的提示词，把真实数据嵌进去让模型直接画出来
 function buildDailyPrompt(dateStr) {
   const s = dailyStats(dateStr);
   const scene = DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
   const todayLine = s.todaySum > 0 ? "今天进账 +" + yuanStr(s.todaySum) : "今天进账 ¥0";
-  const slogan = s.todaySum > 0 ? "一块一块攒，11/19 沙发上见" : "慢慢来，沙发在等我";
+  const slogan = pick(s.todaySum > 0 ? SLOGANS_EARNED : SLOGANS_IDLE);
 
   return (
     "A cute cozy Animal Crossing-inspired vertical poster (portrait), soft cel-shaded vector game-art style. " +
@@ -255,7 +278,7 @@ function buildDailyPrompt(dateStr) {
     "Big highlighted line (Chinese + number), gold: 距 GTA6 发售 " + s.daysLeft + " 天\n" +
     "Progress line (Chinese + numbers): 累计已攒 " + yuanStr(s.total) + " / " + yuanStr(s.goal) + "（" + s.pct.toFixed(1) + "%）\n" +
     "A cute horizontal progress bar filled about " + Math.round(s.pct) + " percent, green fill on a light track.\n" +
-    "Slogan at the bottom (Chinese): " + slogan + " 🎮\n" +
+    "Slogan at the bottom (Chinese): " + slogan + "\n" +
     "A small pill-shaped website tag: earn2play.fun\n" +
     "Make sure the numbers " + yuanStr(s.todaySum) + ", " + s.daysLeft + ", " + yuanStr(s.total) +
     " and the URL earn2play.fun are spelled correctly. No watermark, no extra random text."
