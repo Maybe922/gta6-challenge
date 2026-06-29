@@ -267,5 +267,67 @@
     );
   }
 
+  // ── 今日战报 ─────────────────────────────────────────
+  const BG_COUNT = 3;
+  let cardBgIndex = (new Date().getDate() % BG_COUNT) + 1;
+  let lastCardUrl = null;
+  const imgCache = {};
+  function loadImg(src) {
+    if (!imgCache[src]) {
+      imgCache[src] = new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = () => rej(new Error("图片加载失败: " + src));
+        i.src = src;
+      });
+    }
+    return imgCache[src];
+  }
+
+  async function renderCard() {
+    const data = await api("/api/challenge");
+    await Promise.all([
+      document.fonts.load('900 100px Nunito'),
+      document.fonts.load('900 100px "Noto Sans SC"'),
+      document.fonts.load('700 32px "Noto Sans SC"'),
+    ]).catch(() => {});
+    const [bg, pig] = await Promise.all([
+      loadImg("/cards/bg-" + cardBgIndex + ".jpg"),
+      loadImg("/icon.png"),
+    ]);
+    const canvas = $("#card-canvas");
+    window.drawDailyCard(canvas, { data, bgImg: bg, piggyImg: pig, date: new Date() });
+    await new Promise((res) => {
+      canvas.toBlob((blob) => {
+        if (lastCardUrl) URL.revokeObjectURL(lastCardUrl);
+        lastCardUrl = URL.createObjectURL(blob);
+        const img = $("#card-img");
+        img.src = lastCardUrl; img.hidden = false;
+        $("#card-ph").hidden = true;
+        const d = new Date();
+        const ds = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+        const dl = $("#dl-card");
+        dl.href = lastCardUrl; dl.download = "今日战报-" + ds + ".png"; dl.hidden = false;
+        $("#cycle-bg").hidden = false;
+        res();
+      }, "image/png");
+    });
+  }
+
+  const genBtn = $("#gen-card");
+  if (genBtn) {
+    genBtn.addEventListener("click", async () => {
+      const msg = $("#card-msg"); setMsg(msg, "");
+      genBtn.disabled = true; const orig = genBtn.textContent; genBtn.textContent = "生成中…";
+      try { await renderCard(); genBtn.textContent = "重新生成"; }
+      catch (e) { setMsg(msg, e.message, false); genBtn.textContent = orig; }
+      finally { genBtn.disabled = false; }
+    });
+    $("#cycle-bg").addEventListener("click", async () => {
+      cardBgIndex = (cardBgIndex % BG_COUNT) + 1;
+      try { await renderCard(); } catch (e) { setMsg($("#card-msg"), e.message, false); }
+    });
+  }
+
   boot();
 })();
