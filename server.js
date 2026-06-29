@@ -258,7 +258,12 @@ app.post("/api/daily-image", requireAuth, async (_req, res) => {
 
 // ── 静态资源 ────────────────────────────────────────────
 app.get("/admin", (_req, res) => res.redirect("/admin.html"));
-app.use(express.static(PUBLIC_DIR));
+app.use(express.static(PUBLIC_DIR, {
+  setHeaders(res, p) {
+    // html/js 始终重新校验，避免改了代码客户端还用旧缓存
+    if (/\.(html|js)$/.test(p)) res.setHeader("Cache-Control", "no-cache");
+  },
+}));
 
 app.listen(PORT, () => {
   console.log(`\n  🌴 攒零钱岛已启动`);
