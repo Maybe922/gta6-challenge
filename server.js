@@ -342,8 +342,8 @@ app.post("/api/daily-image", requireAuth, async (req, res) => {
 app.get("/admin", (_req, res) => res.redirect("/admin.html"));
 app.use(express.static(PUBLIC_DIR, {
   setHeaders(res, p) {
-    // html/js 始终重新校验，避免改了代码客户端还用旧缓存
-    if (/\.(html|js)$/.test(p)) res.setHeader("Cache-Control", "no-cache");
+    // html/js/css 始终重新校验，避免改了代码客户端还用旧缓存
+    if (/\.(html|js|css)$/.test(p)) res.setHeader("Cache-Control", "no-cache");
   },
 }));
 

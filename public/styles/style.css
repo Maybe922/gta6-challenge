@@ -344,7 +344,7 @@ section { position: relative; }
 .cd-unit { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; }
 .cd-unit b { font-weight: 900; font-size: clamp(1.7rem, 1.2rem + 2vw, 2.6rem); color: #8b7355; font-variant-numeric: tabular-nums; letter-spacing: 1px; line-height: 1; min-width: 1.6ch; text-align: center; }
 .cd-unit span { font-weight: 800; font-size: 0.64rem; color: var(--text-2); letter-spacing: 0.1em; }
-.cd-sep { font-weight: 900; font-size: clamp(1.4rem, 1rem + 1.6vw, 2.2rem); color: #8b7355; margin-top: 0.05em; animation: blink 1s step-end infinite; }
+.cd-sep { font-weight: 900; font-size: clamp(1.7rem, 1.2rem + 2vw, 2.6rem); line-height: 1; color: #8b7355; animation: blink 1s step-end infinite; }
 @keyframes blink { 50% { opacity: 0.25; } }
 
 /* ── 流水账本 ─────────────────────────────────────────── */
