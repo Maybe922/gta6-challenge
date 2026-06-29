@@ -267,34 +267,44 @@
     );
   }
 
-  // ── 今日战报 ─────────────────────────────────────────
+  // ── 今日战报（每次现调 gpt-image-2 生成背景） ──────────
   const BG_COUNT = 3;
   let cardBgIndex = (new Date().getDate() % BG_COUNT) + 1;
   let lastCardUrl = null;
-  const imgCache = {};
-  function loadImg(src) {
-    if (!imgCache[src]) {
-      imgCache[src] = new Promise((res, rej) => {
-        const i = new Image();
-        i.onload = () => res(i);
-        i.onerror = () => rej(new Error("图片加载失败: " + src));
-        i.src = src;
-      });
-    }
-    return imgCache[src];
+
+  function loadImage(src) {
+    return new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error("图片加载失败"));
+      i.src = src;
+    });
   }
 
+  let piggyImgP = null;
+  function piggy() { return (piggyImgP = piggyImgP || loadImage("/icon.png")); }
+
   async function renderCard() {
+    const msg = $("#card-msg");
     const data = await api("/api/challenge");
     await Promise.all([
       document.fonts.load('900 100px Nunito'),
       document.fonts.load('900 100px "Noto Sans SC"'),
       document.fonts.load('700 32px "Noto Sans SC"'),
     ]).catch(() => {});
-    const [bg, pig] = await Promise.all([
-      loadImg("/cards/bg-" + cardBgIndex + ".jpg"),
-      loadImg("/icon.png"),
-    ]);
+
+    // 现调 AI 生成一张全新背景；失败则回退预制图
+    let bgSrc;
+    try {
+      const r = await api("/api/daily-image", { method: "POST" });
+      bgSrc = r.image;
+    } catch (e) {
+      cardBgIndex = (cardBgIndex % BG_COUNT) + 1;
+      bgSrc = "/cards/bg-" + cardBgIndex + ".jpg";
+      setMsg(msg, "AI 生成没成功（" + e.message + "），先用了一张备用背景，可再试一次", false);
+    }
+
+    const [bg, pig] = await Promise.all([loadImage(bgSrc), piggy()]);
     const canvas = $("#card-canvas");
     window.drawDailyCard(canvas, { data, bgImg: bg, piggyImg: pig, date: new Date() });
     await new Promise((res) => {
@@ -314,19 +324,28 @@
     });
   }
 
+  async function runGen(btn) {
+    const msg = $("#card-msg"); setMsg(msg, "");
+    const others = [$("#gen-card"), $("#cycle-bg")];
+    others.forEach((b) => b && (b.disabled = true));
+    const orig = btn.textContent; btn.textContent = "AI 生成中…约 1 分钟";
+    $("#card-ph").hidden = false; $("#card-ph").textContent = "🎨 AI 正在画今天的背景…（约 1 分钟，别关页面）";
+    try {
+      await renderCard();
+      $("#gen-card").textContent = "重新生成";
+    } catch (e) {
+      setMsg(msg, e.message, false);
+      $("#card-ph").textContent = "生成失败了，点上面重试 🐷";
+    } finally {
+      btn.textContent = btn === $("#gen-card") ? $("#gen-card").textContent : orig;
+      others.forEach((b) => b && (b.disabled = false));
+    }
+  }
+
   const genBtn = $("#gen-card");
   if (genBtn) {
-    genBtn.addEventListener("click", async () => {
-      const msg = $("#card-msg"); setMsg(msg, "");
-      genBtn.disabled = true; const orig = genBtn.textContent; genBtn.textContent = "生成中…";
-      try { await renderCard(); genBtn.textContent = "重新生成"; }
-      catch (e) { setMsg(msg, e.message, false); genBtn.textContent = orig; }
-      finally { genBtn.disabled = false; }
-    });
-    $("#cycle-bg").addEventListener("click", async () => {
-      cardBgIndex = (cardBgIndex % BG_COUNT) + 1;
-      try { await renderCard(); } catch (e) { setMsg($("#card-msg"), e.message, false); }
-    });
+    genBtn.addEventListener("click", () => runGen(genBtn));
+    $("#cycle-bg").addEventListener("click", (e) => runGen(e.currentTarget));
   }
 
   boot();

@@ -192,6 +192,70 @@ app.put("/api/config", requireAuth, (req, res) => {
   }
 });
 
+// ── 今日战报：调 gpt-image-2 现生成背景图（需登录） ─────
+const DAILY_SCENES = [
+  "golden-hour island sky with fluffy pastel clouds and gentle rolling green hills with a few cute rounded trees",
+  "cozy starry night island with a big soft glowing moon, twinkling stars and fireflies, little houses with warm glowing windows along the bottom",
+  "festive celebration scene with gently falling shiny gold coins, confetti ribbons, sparkles and flowers around the edges",
+  "a cozy sunlit room corner with a window, leafy potted plants, soft warm light and a few gold coins on a wooden floor",
+  "a pastel beach at dawn with calm water, palm trees, seashells and soft clouds",
+  "a flowery green meadow at sunset with butterflies, sparkles and distant soft hills",
+  "a cozy rainy window view with warm indoor light, plants and soft bokeh raindrops",
+  "an autumn island with warm orange foliage, falling leaves, pumpkins and a soft sky",
+];
+
+function buildDailyPrompt() {
+  const scene = DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
+  return (
+    "A cozy Animal Crossing-inspired " + scene +
+    ", soft cel-shaded vector game-art style, vertical portrait composition. " +
+    "Palette of grass green, mint, warm cream, soft gold and gentle pastels, soft rounded shapes, " +
+    "gentle shading, wholesome and dreamy mood, with a calm uncluttered area in the upper-middle for overlaying text. " +
+    "No people, no animals, NO text, no words, no letters, no numbers, no UI, no logos."
+  );
+}
+
+async function generateDailyBg() {
+  const key = process.env.CNAI_API_KEY || process.env.OPENAI_API_KEY;
+  const base = (process.env.CNAI_BASE_URL || process.env.OPENAI_BASE_URL || "").replace(/\/+$/, "");
+  if (!key || !base) throw new Error("服务器未配置图像 API（CNAI_API_KEY / CNAI_BASE_URL）");
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 175000);
+  try {
+    const r = await fetch(base + "/v1/images/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+      body: JSON.stringify({ model: "gpt-image-2", prompt: buildDailyPrompt(), size: "1024x1536", quality: "high", n: 1 }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      throw new Error("图像 API 返回 " + r.status + (t ? "：" + t.slice(0, 120) : ""));
+    }
+    const j = await r.json();
+    const item = j && j.data && j.data[0];
+    if (item && item.b64_json) return "data:image/png;base64," + item.b64_json;
+    if (item && item.url) {
+      const ir = await fetch(item.url, { signal: ctrl.signal });
+      const buf = Buffer.from(await ir.arrayBuffer());
+      return "data:image/png;base64," + buf.toString("base64");
+    }
+    throw new Error("图像 API 未返回图片");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+app.post("/api/daily-image", requireAuth, async (_req, res) => {
+  try {
+    res.json({ image: await generateDailyBg() });
+  } catch (e) {
+    const msg = e && e.name === "AbortError" ? "生成超时，请重试" : (e && e.message) || "生成失败";
+    res.status(502).json({ error: msg });
+  }
+});
+
 // ── 静态资源 ────────────────────────────────────────────
 app.get("/admin", (_req, res) => res.redirect("/admin.html"));
 app.use(express.static(PUBLIC_DIR));
