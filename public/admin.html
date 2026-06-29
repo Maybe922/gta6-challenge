@@ -101,7 +101,7 @@
       <span class="ribbon ribbon--green"><span class="ribbon__text">今日战报 · 分享图</span></span>
       <div class="cardgen">
         <div class="cardgen__side">
-          <p class="cardgen__hint">点「生成」会用 <b>gpt-image-2 现画一张全新背景</b>（约 1 分钟，每次都不一样），再把今天的数据精准叠上去。<b>今天进账</b>= 流水里日期是「今天」的那几笔之和。</p>
+          <p class="cardgen__hint">点「生成」会把今天的数据交给 <b>gpt-image-2 整张现画</b>（约 1 分钟，每次都不一样）。<b>今天进账</b>= 流水里日期是「今天」的那几笔之和。⚠️ AI 画中文/数字偶尔会写错，对不上就点「重新生成」再抽一张。</p>
           <div class="cardgen__btns">
             <button class="btn btn--primary" id="gen-card">生成今日战报</button>
             <button class="btn btn--ghost" id="cycle-bg" hidden>再生成一张</button>
@@ -114,11 +114,9 @@
           <span class="cardgen__ph" id="card-ph">点上面「生成」预览今日战报 🐷</span>
         </div>
       </div>
-      <canvas id="card-canvas" hidden></canvas>
     </div>
   </section>
 
-  <script src="scripts/daily-card.js?v=2"></script>
-  <script src="scripts/admin.js?v=2"></script>
+  <script src="scripts/admin.js?v=3"></script>
 </body>
 </html>

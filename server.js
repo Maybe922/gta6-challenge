@@ -192,30 +192,77 @@ app.put("/api/config", requireAuth, (req, res) => {
   }
 });
 
-// ── 今日战报：调 gpt-image-2 现生成背景图（需登录） ─────
+// ── 今日战报：调 gpt-image-2 整张现画（含数据文字，需登录） ─────
 const DAILY_SCENES = [
-  "golden-hour island sky with fluffy pastel clouds and gentle rolling green hills with a few cute rounded trees",
-  "cozy starry night island with a big soft glowing moon, twinkling stars and fireflies, little houses with warm glowing windows along the bottom",
-  "festive celebration scene with gently falling shiny gold coins, confetti ribbons, sparkles and flowers around the edges",
-  "a cozy sunlit room corner with a window, leafy potted plants, soft warm light and a few gold coins on a wooden floor",
-  "a pastel beach at dawn with calm water, palm trees, seashells and soft clouds",
-  "a flowery green meadow at sunset with butterflies, sparkles and distant soft hills",
-  "a cozy rainy window view with warm indoor light, plants and soft bokeh raindrops",
-  "an autumn island with warm orange foliage, falling leaves, pumpkins and a soft sky",
+  "a golden-hour island sky with fluffy pastel clouds and gentle rolling green hills",
+  "a cozy starry night island with a big soft glowing moon, twinkling stars and fireflies",
+  "a festive scene with gently falling shiny gold coins, confetti ribbons and sparkles",
+  "a cozy sunlit room corner with a window, leafy potted plants and warm light",
+  "a pastel beach at dawn with calm water, palm trees and soft clouds",
+  "a flowery green meadow at sunset with butterflies and sparkles",
+  "an autumn island with warm orange foliage, falling leaves and a soft sky",
 ];
 
-function buildDailyPrompt() {
+function ymdStr(dt) {
+  return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+}
+
+// 用真实数据算出今日战报需要的数字
+function dailyStats(dateStr) {
+  const data = getData();
+  const cfg = data.config || {};
+  const entries = data.entries || [];
+  const today = DATE_RE.test(String(dateStr)) ? String(dateStr) : ymdStr(new Date());
+
+  const todayEntries = entries.filter((e) => e.date === today);
+  const todaySum = todayEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const total = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const gItems = Array.isArray(cfg.goalItems) ? cfg.goalItems : [];
+  const goal = gItems.length ? gItems.reduce((s, i) => s + (Number(i.price) || 0), 0) : Number(cfg.goalAmount) || 0;
+  const pct = goal > 0 ? Math.min(100, (total / goal) * 100) : 0;
+
+  const deadline = (() => {
+    const [y, m, d] = String(cfg.deadline || "2026-11-19").split("-").map(Number);
+    const dt = new Date(y, (m || 1) - 1, d || 1); dt.setHours(23, 59, 59, 999); return dt;
+  })();
+  const [ty, tm, td] = today.split("-").map(Number);
+  const todayDt = new Date(ty, (tm || 1) - 1, td || 1);
+  const daysLeft = Math.max(0, Math.ceil((deadline - todayDt) / 86400000));
+
+  return { todaySum, todayEntries, total, goal, pct, daysLeft, monthDay: tm + "月" + td + "日" };
+}
+
+const yuanStr = (n) => "¥" + Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
+
+// 整张海报（含中文 + 数字）的提示词，把真实数据嵌进去让模型直接画出来
+function buildDailyPrompt(dateStr) {
+  const s = dailyStats(dateStr);
   const scene = DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
+  const todayLine = s.todaySum > 0 ? "今天进账 +" + yuanStr(s.todaySum) : "今天进账 ¥0";
+  const slogan = s.todaySum > 0 ? "一块一块攒，11/19 沙发上见" : "慢慢来，沙发在等我";
+
   return (
-    "A cozy Animal Crossing-inspired " + scene +
-    ", soft cel-shaded vector game-art style, vertical portrait composition. " +
-    "Palette of grass green, mint, warm cream, soft gold and gentle pastels, soft rounded shapes, " +
-    "gentle shading, wholesome and dreamy mood, with a calm uncluttered area in the upper-middle for overlaying text. " +
-    "No people, no animals, NO text, no words, no letters, no numbers, no UI, no logos."
+    "A cute cozy Animal Crossing-inspired vertical poster (portrait), soft cel-shaded vector game-art style. " +
+    "Background: " + scene + ". " +
+    "Palette of grass green, mint, warm cream and soft gold, soft rounded shapes, gentle shading, wholesome dreamy mood. " +
+    "Include one cute mint-green piggy bank with a gold coin near the top. " +
+    "This is a daily savings-progress poster. Render ALL of the following text large, crisp and perfectly legible, " +
+    "with cute rounded bold lettering, on soft semi-transparent rounded panels so the text stays readable, " +
+    "laid out top-to-bottom with clear visual hierarchy. Spell every Chinese character and every number EXACTLY as written:\n" +
+    "Title (Chinese): 努力奋战\n" +
+    "Subtitle (Chinese): " + s.monthDay + " · 公开挑战日志\n" +
+    "Big highlighted line (Chinese + number), bright green: " + todayLine + "\n" +
+    "Big highlighted line (Chinese + number), gold: 距 GTA6 发售 " + s.daysLeft + " 天\n" +
+    "Progress line (Chinese + numbers): 累计已攒 " + yuanStr(s.total) + " / " + yuanStr(s.goal) + "（" + s.pct.toFixed(1) + "%）\n" +
+    "A cute horizontal progress bar filled about " + Math.round(s.pct) + " percent, green fill on a light track.\n" +
+    "Slogan at the bottom (Chinese): " + slogan + " 🎮\n" +
+    "A small pill-shaped website tag: earn2play.fun\n" +
+    "Make sure the numbers " + yuanStr(s.todaySum) + ", " + s.daysLeft + ", " + yuanStr(s.total) +
+    " and the URL earn2play.fun are spelled correctly. No watermark, no extra random text."
   );
 }
 
-async function generateDailyBg() {
+async function generateDailyImage(prompt) {
   const key = process.env.CNAI_API_KEY || process.env.OPENAI_API_KEY;
   const base = (process.env.CNAI_BASE_URL || process.env.OPENAI_BASE_URL || "").replace(/\/+$/, "");
   if (!key || !base) throw new Error("服务器未配置图像 API（CNAI_API_KEY / CNAI_BASE_URL）");
@@ -226,7 +273,7 @@ async function generateDailyBg() {
     const r = await fetch(base + "/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
-      body: JSON.stringify({ model: "gpt-image-2", prompt: buildDailyPrompt(), size: "1024x1536", quality: "high", n: 1 }),
+      body: JSON.stringify({ model: "gpt-image-2", prompt, size: "1024x1536", quality: "high", n: 1 }),
       signal: ctrl.signal,
     });
     if (!r.ok) {
@@ -247,9 +294,10 @@ async function generateDailyBg() {
   }
 }
 
-app.post("/api/daily-image", requireAuth, async (_req, res) => {
+app.post("/api/daily-image", requireAuth, async (req, res) => {
   try {
-    res.json({ image: await generateDailyBg() });
+    const prompt = buildDailyPrompt((req.body || {}).date);
+    res.json({ image: await generateDailyImage(prompt) });
   } catch (e) {
     const msg = e && e.name === "AbortError" ? "生成超时，请重试" : (e && e.message) || "生成失败";
     res.status(502).json({ error: msg });
