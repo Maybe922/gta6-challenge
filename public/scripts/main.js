@@ -193,15 +193,51 @@
     if (entries.length === 0) {
       timeline.appendChild(emptyNode());
     } else {
-      // 按日期倒序（最新在上），日期相同保持原顺序
+      // 按日期倒序（最新在上）；同一天按「后记的在上」（插入顺序倒序，rowid 越大越新）
       const sorted = entries
         .map((e, i) => ({ e, i }))
         .sort((a, b) => {
           const d = parseDate(b.e.date) - parseDate(a.e.date);
-          return d !== 0 ? d : a.i - b.i;
+          return d !== 0 ? d : b.i - a.i;
         })
         .map((x) => x.e);
-      sorted.forEach((e) => timeline.appendChild(entryNode(e)));
+
+      // 超过 5 条翻页
+      const PAGE_SIZE = 5;
+      const pageCount = Math.ceil(sorted.length / PAGE_SIZE);
+      const pager = $("[data-pager]");
+      let page = 0;
+
+      function renderPage(p, animate) {
+        page = Math.max(0, Math.min(p, pageCount - 1));
+        timeline.innerHTML = "";
+        const start = page * PAGE_SIZE;
+        sorted.slice(start, start + PAGE_SIZE).forEach((e) => {
+          const node = entryNode(e);
+          if (!animate) node.classList.add("is-in"); // 翻页即时显示，不等滚动揭示
+          timeline.appendChild(node);
+        });
+        renderPager();
+      }
+
+      function renderPager() {
+        if (!pager) return;
+        if (pageCount <= 1) {
+          pager.hidden = true;
+          return;
+        }
+        pager.hidden = false;
+        pager.innerHTML =
+          `<button class="pager__btn" type="button" data-prev ${page === 0 ? "disabled" : ""} aria-label="上一页">‹</button>` +
+          `<span class="pager__info">第 <b>${page + 1}</b> / ${pageCount} 页</span>` +
+          `<button class="pager__btn" type="button" data-next ${page === pageCount - 1 ? "disabled" : ""} aria-label="下一页">›</button>`;
+        const prev = pager.querySelector("[data-prev]");
+        const next = pager.querySelector("[data-next]");
+        if (prev) prev.addEventListener("click", () => renderPage(page - 1, false));
+        if (next) next.addEventListener("click", () => renderPage(page + 1, false));
+      }
+
+      renderPage(0, true);
     }
   }
 
