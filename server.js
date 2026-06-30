@@ -5,6 +5,8 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { initDb, getData, addEntry, updateEntry, deleteEntry, patchConfig } from "./db.js";
+import { DATE_RE, dailyStats, yuanStr } from "./stats.js";
+import { startBot } from "./bot.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, "public");
@@ -23,7 +25,7 @@ const app = express();
 app.use(express.json());
 
 // ── 校验 ────────────────────────────────────────────────
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// DATE_RE 由 stats.js 提供（与统计口径同源）
 
 function validateEntry(body) {
   const errors = [];
@@ -203,36 +205,7 @@ const DAILY_SCENES = [
   "an autumn island with warm orange foliage, falling leaves and a soft sky",
 ];
 
-function ymdStr(dt) {
-  return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
-}
-
-// 用真实数据算出今日战报需要的数字
-function dailyStats(dateStr) {
-  const data = getData();
-  const cfg = data.config || {};
-  const entries = data.entries || [];
-  const today = DATE_RE.test(String(dateStr)) ? String(dateStr) : ymdStr(new Date());
-
-  const todayEntries = entries.filter((e) => e.date === today);
-  const todaySum = todayEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const total = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const gItems = Array.isArray(cfg.goalItems) ? cfg.goalItems : [];
-  const goal = gItems.length ? gItems.reduce((s, i) => s + (Number(i.price) || 0), 0) : Number(cfg.goalAmount) || 0;
-  const pct = goal > 0 ? Math.min(100, (total / goal) * 100) : 0;
-
-  const deadline = (() => {
-    const [y, m, d] = String(cfg.deadline || "2026-11-19").split("-").map(Number);
-    const dt = new Date(y, (m || 1) - 1, d || 1); dt.setHours(23, 59, 59, 999); return dt;
-  })();
-  const [ty, tm, td] = today.split("-").map(Number);
-  const todayDt = new Date(ty, (tm || 1) - 1, td || 1);
-  const daysLeft = Math.max(0, Math.ceil((deadline - todayDt) / 86400000));
-
-  return { todaySum, todayEntries, total, goal, pct, daysLeft, monthDay: tm + "月" + td + "日" };
-}
-
-const yuanStr = (n) => "¥" + Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
+// ymdStr / dailyStats / yuanStr 由 stats.js 提供（server 与 bot 共用同一口径）
 
 const SLOGAN_FALLBACK = "慢慢攒，11/19 沙发上见 🛋️";
 
@@ -356,4 +329,6 @@ app.listen(PORT, () => {
   } else {
     console.log("");
   }
+  // Telegram 记账 bot（未配 TG_BOT_TOKEN 时自动跳过）
+  startBot();
 });
